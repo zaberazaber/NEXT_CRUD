@@ -1,26 +1,50 @@
-import styles from "../styles/Home.module.css";
-import Link from "next/link";
-import Head from "next/head";
+// pages/index.js
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+import UserTable from '../components/UserTable';
+import UserForm from '../components/UserForm';
 
 export default function Home() {
+  const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const response = await axios.get('/api/users');
+      setUsers(response.data);
+    };
+
+    fetchUsers();
+  }, []);
+
+  const resetSelectedUser = () => {
+    setSelectedUser(null);
+    setShowForm(false)
+  }
+
   return (
-    <>
-      <Head>
-        <title>User | Home</title>
-        <meta name="keywords" content="users" />
-      </Head>
-      <div className={styles.container}>
-        <h1 className={styles.title}>NEXT JS APP</h1>
-        <p className={styles.text}>
-          
-        </p>
-        <p className={styles.text}>
-          
-        </p>
-        <a href="/www.google.com">
-          <p className={styles.btn}>Checkout Github</p>
-        </a>
-      </div>
-    </>
+    <div>
+      <h1>User Management</h1>
+      {showForm && (
+        <UserForm
+          user={selectedUser}
+          setUsers={setUsers}
+          users={users}
+          resetSelectedUser={resetSelectedUser}
+        />
+      )}
+      {!showForm && (
+        <UserTable
+          users={users}
+          setUsers={setUsers}
+          setSelectedUser={(user) => {
+            setSelectedUser(user);
+            setShowForm(true);
+          }}
+          setShowForm={setShowForm}
+        />
+      )}
+    </div>
   );
 }
