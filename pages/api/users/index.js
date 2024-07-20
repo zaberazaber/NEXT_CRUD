@@ -7,7 +7,6 @@ export const getUsers = () => {
 
 export const createUser = (user) => {
   const users = readUsers();
-  console.log("userz",users)
   user.id = users.length + 1;
   user.password = bcrypt.hashSync(user.password, 10);
   users.push(user);
