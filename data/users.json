@@ -1,5 +1,14 @@
 [
   {
+    "first_name": "ada",
+    "last_name": "dawSd",
+    "email": "devops@dsci.in",
+    "alternate_email": "grsgrs@fwsf.com",
+    "password": "$2a$10$.DsOqr2ge8APCK8DRk6ia.5cdUpctZtvx4iiS8g4.lRBzpwtQlwtW",
+    "age": "54",
+    "id": 17
+  },
+  {
     "first_name": "testr",
     "last_name": "1",
     "email": "test1@test.com",
