@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import {
   useReactTable,
@@ -6,68 +7,29 @@ import {
   getFilteredRowModel,
   getPaginationRowModel,
   flexRender,
-} from "@tanstack/react-table";
+} from '@tanstack/react-table';
 
-const defaultColumn = {
-  cell: ({ getValue, row: { index }, column: { id }, table }) => {
-    const initialValue = getValue();
-        // We need to keep and update the state of the cell normally
-        // const [value, setValue] = useState(initialValue);
-
-    // When the input is blurred, we'll call our table meta's updateData function
-    const onBlur = () => {
-      table.options.meta?.updateData(index, id, initialValue);
-    };
-
-   // If the initialValue is changed external, sync it up with our state
-    // useEffect(() => {
-    //   setValue(initialValue);
-    // }, [initialValue]);
-
-    return (
-      <input
-        value={initialValue}
-        onChange={(e) => setValue(e.target.value)}
-        onBlur={onBlur}
-        className="w-full p-1 border border-gray-300 rounded"
-      />
-    );
-  },
+const fetchUsers = async () => {
+  const { data } = await axios.get('/api/users');
+  return data;
 };
 
-function useSkipper() {
-  const shouldSkipRef = React.useRef(true);
-  const shouldSkip = shouldSkipRef.current;
- 
- // Wrap a function with this to skip a pagination reset temporarily
-  const skip = React.useCallback(() => {
-    shouldSkipRef.current = false;
-  }, []);
-
-  React.useEffect(() => {
-    shouldSkipRef.current = true;
+const UserTable = ({ setSelectedUser, setShowForm }) => {
+  const queryClient = useQueryClient();
+  const { data: users = [], isLoading, error } = useQuery({
+    queryKey: ['users'],
+    queryFn: fetchUsers,
   });
 
-  return [shouldSkip, skip];
-}
+  const deleteUser = useMutation({
+    mutationFn: (id) => axios.delete(`/api/users/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
 
-const UserTable = ({ users, setUsers, setSelectedUser, setShowForm }) => {
-  const [selectedRows, setSelectedRows] = useState([]);
-  
-  const handleCheckboxChange = (id) => {
-    setSelectedRows((prevSelected) =>
-      prevSelected.includes(id)
-        ? prevSelected.filter((selectedId) => selectedId !== id)
-        : [...prevSelected, id]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedRows.length === users.length) {
-      setSelectedRows([]);
-    } else {
-      setSelectedRows(users.map((user) => user.id));
-    }
+  const handleDelete = (id) => {
+    deleteUser.mutate(id);
   };
 
   const columns = React.useMemo(
@@ -116,37 +78,18 @@ const UserTable = ({ users, setUsers, setSelectedUser, setShowForm }) => {
               </div>
             ),
           },
-          // {
-          //   id: 'Select',
-          //   cell: ({ row }) => (
-          //     <input
-          //       type="checkbox"
-          //       checked={selectedRows.includes(row.original.id)}
-          //       onChange={() => handleCheckboxChange(row.original.id)}
-          //     />
-          //   ),
-          // },
         ],
       },
     ],
     []
   );
 
-  const [data, setData] = useState(users);
-  const [autoResetPageIndex, skipAutoResetPageIndex] = useSkipper();
-
-  useEffect(() => {
-    setData(users);
-  }, [users]);
-
   const table = useReactTable({
-    data,
+    data: users,
     columns,
-    defaultColumn,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    autoResetPageIndex,
     meta: {
       updateData: (rowIndex, columnId, value) => {
         skipAutoResetPageIndex();
@@ -170,15 +113,7 @@ const UserTable = ({ users, setUsers, setSelectedUser, setShowForm }) => {
     setShowForm(true);
   };
 
-  const handleDelete = async (id) => {
-    try {
-      await axios.delete(`/api/users/${id}`);
-      setUsers((prevUsers) => prevUsers.filter((user) => user.id !== id));
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      alert('Failed to delete user');
-    }
-  };
+
 
   const handleDeleteSelected = async () => {
     try {
@@ -193,6 +128,8 @@ const UserTable = ({ users, setUsers, setSelectedUser, setShowForm }) => {
     }
   };
 
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error loading users</div>;
 
   return (
     <div className="bg-white rounded shadow-md">
@@ -203,36 +140,16 @@ const UserTable = ({ users, setUsers, setSelectedUser, setShowForm }) => {
         >
           Add User
         </button>
-        <button
-          className="px-4 py-2 bg-red-500 text-white rounded"
-          onClick={handleDeleteSelected}
-          disabled={selectedRows.length === 0}
-        >
-          Delete Selected
-        </button>
       </div>
       <table className="w-full border-collapse">
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id}>
-              <th>
-                <input
-                  type="checkbox"
-                  checked={selectedRows.length === users.length}
-                  onChange={handleSelectAll}
-                />
-              </th>
-             
               {headerGroup.headers.map((header) => (
                 <th key={header.id} colSpan={header.colSpan} className="border-b p-2 text-left">
                   {header.isPlaceholder ? null : (
                     <div>
                       {flexRender(header.column.columnDef.header, header.getContext())}
-                      {header.column.getCanFilter() ? (
-                        <div>
-                          <Filter column={header.column} table={table} />
-                        </div>
-                      ) : null}
                     </div>
                   )}
                 </th>
@@ -243,13 +160,6 @@ const UserTable = ({ users, setUsers, setSelectedUser, setShowForm }) => {
         <tbody>
           {table.getRowModel().rows.map((row) => (
             <tr key={row.id}>
-              <td>
-                <input
-                  type="checkbox"
-                  checked={selectedRows.includes(row.original.id)}
-                  onChange={() => handleCheckboxChange(row.original.id)}
-                />
-              </td>
               {row.getVisibleCells().map((cell) => (
                 <td key={cell.id} className="border-b p-2">
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -259,105 +169,8 @@ const UserTable = ({ users, setUsers, setSelectedUser, setShowForm }) => {
           ))}
         </tbody>
       </table>
-      <div className="flex items-center gap-2 mt-4">
-        <button
-          className="border rounded p-1"
-          onClick={() => table.setPageIndex(0)}
-          disabled={!table.getCanPreviousPage()}
-        >
-          {"<<"}
-        </button>
-        <button
-          className="border rounded p-1"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          {"<"}
-        </button>
-        <button
-          className="border rounded p-1"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          {">"}
-        </button>
-        <button
-          className="border rounded p-1"
-          onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-          disabled={!table.getCanNextPage()}
-        >
-          {">>"}
-        </button>
-        <span className="flex items-center gap-1">
-          <div>Page</div>
-          <strong>
-            {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-          </strong>
-        </span>
-        <span className="flex items-center gap-1">
-          | Go to page:
-          <input
-            type="number"
-            defaultValue={table.getState().pagination.pageIndex + 1}
-            onChange={(e) => {
-              const page = e.target.value ? Number(e.target.value) - 1 : 0;
-              table.setPageIndex(page);
-            }}
-            className="border p-1 rounded w-16"
-          />
-        </span>
-        <select
-          value={table.getState().pagination.pageSize}
-          onChange={(e) => {
-            table.setPageSize(Number(e.target.value));
-          }}
-        >
-          {[10, 20, 30, 40, 50].map((pageSize) => (
-            <option key={pageSize} value={pageSize}>
-              Show {pageSize}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>{table.getRowModel().rows.length} Rows</div>
     </div>
   );
 };
-
-function Filter({ column, table }) {
-  const firstValue = table.getPreFilteredRowModel().flatRows[0]?.getValue(column.id);
-  const columnFilterValue = column.getFilterValue();
-
-  return typeof firstValue === "number" ? (
-    <div className="flex space-x-2">
-      <input
-        type="number"
-        value={(columnFilterValue)?.[0] ?? ""}
-        onChange={(e) =>
-          column.setFilterValue((old) => [e.target.value, old?.[1]])
-        }
-        placeholder={`Min`}
-        className="w-24 border shadow rounded"
-      />
-      <input
-        type="number"
-        value={(columnFilterValue)?.[1] ?? ""}
-        onChange={(e) =>
-          column.setFilterValue((old) => [old?.[0], e.target.value])
-        }
-        placeholder={`Max`}
-        className="w-24 border shadow rounded"
-      />
-    </div>
-  ) : (
-    <input
-      type="text"
-      value={columnFilterValue ?? ""}
-      onChange={(e) => column.setFilterValue(e.target.value)}
-      placeholder={`Search...`}
-      className="w-36 border shadow rounded"
-    />
-  );
-}
 
 export default UserTable;

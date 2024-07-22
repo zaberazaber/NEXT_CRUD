@@ -1,3 +1,4 @@
+// pages/api/users/[id].js
 import { readUsers, writeUsers } from '../../../utils/db';
 
 export const updateUser = (id, data) => {

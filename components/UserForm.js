@@ -1,8 +1,9 @@
-// components/UserForm.js
 import { useState, useEffect } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
-const UserForm = ({ user, setUsers, users, resetSelectedUser }) => {
+const UserForm = ({ user, resetSelectedUser }) => {
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -25,26 +26,32 @@ const UserForm = ({ user, setUsers, users, resetSelectedUser }) => {
     }
   }, [user]);
 
+  const addUserMutation = useMutation({
+    mutationFn: (newUser) => axios.post('/api/users', newUser),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      resetSelectedUser();
+    },
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: (updatedUser) => axios.put(`/api/users/${user.id}`, updatedUser),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      resetSelectedUser();
+    },
+  });
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    try {
-      if (user) {
-        const response = await axios.put(`/api/users/${user.id}`, formData);
-        setUsers(
-          users.map((u) => (u.id === user.id ? response.data : u))
-        );
-      } else {
-        const response = await axios.post('/api/users', formData);
-        setUsers([...users, response.data]);
-      }
-      resetSelectedUser();
-    } catch (error) {
-      console.error('Error saving user:', error);
-      alert('Failed to save user');
+    if (user) {
+      updateUserMutation.mutate(formData);
+    } else {
+      addUserMutation.mutate(formData);
     }
   };
 
@@ -118,25 +125,17 @@ const UserForm = ({ user, setUsers, users, resetSelectedUser }) => {
               name="age"
               value={formData.age}
               onChange={handleChange}
-              min="18"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
               required
             />
           </div>
         </div>
-        <div className="flex justify-end space-x-4">
-          <button
-            type="button"
-            className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-            onClick={resetSelectedUser}
-          >
-            Cancel
-          </button>
+        <div className="flex justify-end">
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring focus:ring-blue-200 focus:ring-opacity-50"
           >
-            {user ? 'Update' : 'Add'}
+            {user ? 'Update' : 'Add'} User
           </button>
         </div>
       </form>
